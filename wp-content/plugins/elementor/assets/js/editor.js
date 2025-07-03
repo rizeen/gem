@@ -1,4 +1,4 @@
-/*! elementor - v3.29.0 - 19-05-2025 */
+/*! elementor - v3.30.0 - 01-07-2025 */
 /******/ (() => { // webpackBootstrap
 /******/ 	var __webpack_modules__ = ({
 
@@ -9768,7 +9768,16 @@ InsertTemplateHandler = Marionette.Behavior.extend({
       model: this.view.model
     };
     this.ui.insertButton.addClass('elementor-disabled');
-    if ('remote' === args.model.get('source') && !elementor.config.library_connect.is_connected) {
+    var activeSource = args.model.get('source');
+
+    /**
+     * Filter template source.
+     *
+     * @param bool   isRemote     - If `true` the source is a remote source.
+     * @param string activeSource - The current template source.
+     */
+    var isRemote = elementor.hooks.applyFilters('templates/source/is-remote', 'remote' === activeSource, activeSource);
+    if (isRemote && !elementor.config.library_connect.is_connected) {
       $e.route('library/connect', args);
       return;
     }
@@ -10402,12 +10411,12 @@ var EventManager = exports.EventManager = /*#__PURE__*/function () {
     }
   }, {
     key: "sendTemplateSavedEvent",
-    value: function sendTemplateSavedEvent() {
-      return this.sendEvent(EVENTS_MAP.TEMPLATE_SAVED, {
+    value: function sendTemplateSavedEvent(data) {
+      return this.sendEvent(EVENTS_MAP.TEMPLATE_SAVED, _objectSpread({
         location: elementor.editorEvents.config.locations.templatesLibrary.library,
         secondaryLocation: elementor.editorEvents.config.secondaryLocations.templateLibrary.saveModal,
         trigger: elementor.editorEvents.config.triggers.click
-      });
+      }, data));
     }
   }, {
     key: "sendTemplateTransferEvent",
@@ -18153,6 +18162,9 @@ var _controlsStack = _interopRequireDefault(__webpack_require__(/*! elementor-vi
 module.exports = Marionette.CompositeView.extend({
   template: Marionette.TemplateCache.get('#tmpl-elementor-repeater-row'),
   className: 'elementor-repeater-fields',
+  attributes: {
+    role: 'listitem'
+  },
   ui: function ui() {
     return {
       duplicateButton: '.elementor-repeater-tool-duplicate',
@@ -32863,8 +32875,11 @@ BaseElementView = BaseContainer.extend({
     }
   },
   getHandlesOverlay: function getHandlesOverlay() {
-    var elementType = this.getElementType(),
-      $handlesOverlay = jQuery('<div>', {
+    var elementType = this.getElementType();
+    if (!elementor.userCan('design') && elementType !== 'widget') {
+      return;
+    }
+    var $handlesOverlay = jQuery('<div>', {
         class: 'elementor-element-overlay'
       }),
       $overlayList = jQuery('<ul>', {
@@ -32873,9 +32888,10 @@ BaseElementView = BaseContainer.extend({
       editButtonsEnabled = elementor.getPreferences('edit_buttons'),
       elementData = elementor.getElementData(this.model);
     var editButtons = this.getEditButtons();
+    var shouldShowEditButtons = editButtonsEnabled || 'widget' === elementType;
 
-    // We should only allow external modification to edit buttons if the user enabled edit buttons.
-    if (editButtonsEnabled) {
+    // We should only allow external modification to edit buttons if the user enabled edit buttons or it's a widget.
+    if (shouldShowEditButtons) {
       /**
        * Filter edit buttons.
        *
@@ -33655,6 +33671,16 @@ BaseElementView = BaseContainer.extend({
     });
   },
   handleAnchorClick: function handleAnchorClick(event) {
+    var _this$model;
+    var anchor = event.target.closest('a');
+    var hash = (anchor === null || anchor === void 0 ? void 0 : anchor.getAttribute('href')) || ((_this$model = this.model) === null || _this$model === void 0 || (_this$model = _this$model.get('settings')) === null || _this$model === void 0 || (_this$model = _this$model.get('link')) === null || _this$model === void 0 ? void 0 : _this$model.url) || '';
+    if (hash && hash.startsWith('#')) {
+      var _event$target;
+      var scrollTargetElem = (_event$target = event.target) === null || _event$target === void 0 ? void 0 : _event$target.ownerDocument.querySelector(hash);
+      if (scrollTargetElem) {
+        scrollTargetElem.scrollIntoView();
+      }
+    }
     if (elementor.helpers.isElementAtomic(this.getContainer().id)) {
       event.preventDefault();
     }
@@ -33992,7 +34018,7 @@ module.exports = Marionette.Behavior.extend({
         actions: [{
           name: 'navigator',
           icon: 'eicon-navigator',
-          title: elementorCommon.config.experimentalFeatures.editor_v2 ? __('Structure', 'elementor') : __('Navigator', 'elementor'),
+          title: __('Structure', 'elementor'),
           shortcut: controlSign + '+I',
           callback: function callback() {
             return $e.route('navigator', {
@@ -38926,7 +38952,7 @@ module.exports = Marionette.ItemView.extend({
       // Force exit if device mode is already desktop
       elementor.exitDeviceMode();
     } else {
-      var deviceView = 'default' === elementor.getPreferences('default_device_view') ? 'desktop' : elementor.getPreferences('default_device_view');
+      var deviceView = 'desktop';
       elementor.changeDeviceMode(deviceView);
       if ('desktop' === deviceView) {
         elementor.enterDeviceMode();
@@ -42855,7 +42881,6 @@ module.exports = {
   },
   // The target parameter = 'editor'/'preview'. Defaults to 'preview' for backwards compatibility.
   enqueueFont: function enqueueFont(font) {
-    var _elementorCommon$conf;
     var target = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'preview';
     if ($e.devTools) {
       $e.devTools.log.info("enqueueFont font: '".concat(font, "', target: '").concat(target, "'"));
@@ -42881,7 +42906,7 @@ module.exports = {
           fontUrl += '&subset=' + subsets[elementor.config.locale];
         }
         enqueueOptions.crossOrigin = true;
-        if ((_elementorCommon$conf = elementorCommon.config.experimentalFeatures) !== null && _elementorCommon$conf !== void 0 && _elementorCommon$conf.e_local_google_fonts && 'preview' === target) {
+        if ('preview' === target) {
           elementorCommon.ajax.addRequest('enqueue_google_fonts', {
             data: {
               font_name: font
@@ -50237,7 +50262,10 @@ var DivBlockEmptyView = exports["default"] = /*#__PURE__*/function (_Marionette$
 
 var _interopRequireDefault = __webpack_require__(/*! @babel/runtime/helpers/interopRequireDefault */ "../node_modules/@babel/runtime/helpers/interopRequireDefault.js");
 var _toConsumableArray2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime/helpers/toConsumableArray */ "../node_modules/@babel/runtime/helpers/toConsumableArray.js"));
+var _defineProperty2 = _interopRequireDefault(__webpack_require__(/*! @babel/runtime/helpers/defineProperty */ "../node_modules/@babel/runtime/helpers/defineProperty.js"));
 var _divBlockEmptyView = _interopRequireDefault(__webpack_require__(/*! ./container/div-block-empty-view */ "../modules/atomic-widgets/assets/js/editor/container/div-block-empty-view.js"));
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { (0, _defineProperty2.default)(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 var BaseElementView = elementor.modules.elements.views.BaseElement;
 var DivBlockView = BaseElementView.extend({
   template: Marionette.TemplateCache.get('#tmpl-elementor-e-div-block-content'),
@@ -50262,6 +50290,19 @@ var DivBlockView = BaseElementView.extend({
     var ui = BaseElementView.prototype.ui.apply(this, arguments);
     ui.percentsTooltip = '> .elementor-element-overlay .elementor-column-percents-tooltip';
     return ui;
+  },
+  attributes: function attributes() {
+    var attr = BaseElementView.prototype.attributes.apply(this);
+    var local = {};
+    var cssId = this.model.getSetting('_cssid');
+    if (cssId) {
+      local.id = cssId.value;
+    }
+    var href = this.getHref();
+    if (href) {
+      local.href = href;
+    }
+    return _objectSpread(_objectSpread({}, attr), local);
   },
   // TODO: Copied from `views/column.js`.
   attachElContent: function attachElContent() {
@@ -50295,6 +50336,14 @@ var DivBlockView = BaseElementView.extend({
       this.$el.attr('class', this.className());
       return;
     }
+    if (changed._cssid) {
+      if (changed._cssid.value) {
+        this.$el.attr('id', changed._cssid.value);
+      } else {
+        this.$el.removeAttr('id');
+      }
+      return;
+    }
     this.$el.addClass(this.getClasses());
     if (this.isTagChanged(changed)) {
       this.rerenderEntireView();
@@ -50311,19 +50360,11 @@ var DivBlockView = BaseElementView.extend({
   onRender: function onRender() {
     var _this = this;
     BaseElementView.prototype.onRender.apply(this, arguments);
-    this.handleLink();
 
     // Defer to wait for everything to render.
     setTimeout(function () {
       _this.droppableInitialize();
     });
-  },
-  handleLink: function handleLink() {
-    var href = this.getHref();
-    if (!href) {
-      return;
-    }
-    this.$el.attr('href', href);
   },
   haveLink: function haveLink() {
     var _this$model$getSettin;
@@ -50544,8 +50585,12 @@ var DivBlockView = BaseElementView.extend({
     this.addSectionView = addSectionView;
   },
   getClasses: function getClasses() {
-    var _this$options;
-    return ((_this$options = this.options) === null || _this$options === void 0 || (_this$options = _this$options.model) === null || _this$options === void 0 || (_this$options = _this$options.getSetting('classes')) === null || _this$options === void 0 ? void 0 : _this$options.value) || [];
+    var _window, _window$get, _this$options;
+    var transformer = (_window = window) === null || _window === void 0 || (_window = _window.elementorV2) === null || _window === void 0 || (_window = _window.editorCanvas) === null || _window === void 0 || (_window = _window.settingsTransformersRegistry) === null || _window === void 0 || (_window$get = _window.get) === null || _window$get === void 0 ? void 0 : _window$get.call(_window, 'classes');
+    if (!transformer) {
+      return [];
+    }
+    return transformer(((_this$options = this.options) === null || _this$options === void 0 || (_this$options = _this$options.model) === null || _this$options === void 0 || (_this$options = _this$options.getSetting('classes')) === null || _this$options === void 0 ? void 0 : _this$options.value) || []);
   },
   getClassString: function getClassString() {
     var classes = this.getClasses();
@@ -57930,7 +57975,7 @@ var _default = exports["default"] = function _default() {
 /***/ ((module) => {
 
 "use strict";
-/*! @license DOMPurify 3.2.3 | (c) Cure53 and other contributors | Released under the Apache license 2.0 and Mozilla Public License 2.0 | github.com/cure53/DOMPurify/blob/3.2.3/LICENSE */
+/*! @license DOMPurify 3.2.6 | (c) Cure53 and other contributors | Released under the Apache license 2.0 and Mozilla Public License 2.0 | github.com/cure53/DOMPurify/blob/3.2.6/LICENSE */
 
 
 
@@ -57971,8 +58016,10 @@ if (!construct) {
   };
 }
 const arrayForEach = unapply(Array.prototype.forEach);
+const arrayLastIndexOf = unapply(Array.prototype.lastIndexOf);
 const arrayPop = unapply(Array.prototype.pop);
 const arrayPush = unapply(Array.prototype.push);
+const arraySplice = unapply(Array.prototype.splice);
 const stringToLowerCase = unapply(String.prototype.toLowerCase);
 const stringToString = unapply(String.prototype.toString);
 const stringMatch = unapply(String.prototype.match);
@@ -57990,6 +58037,9 @@ const typeErrorCreate = unconstruct(TypeError);
  */
 function unapply(func) {
   return function (thisArg) {
+    if (thisArg instanceof RegExp) {
+      thisArg.lastIndex = 0;
+    }
     for (var _len = arguments.length, args = new Array(_len > 1 ? _len - 1 : 0), _key = 1; _key < _len; _key++) {
       args[_key - 1] = arguments[_key];
     }
@@ -58128,10 +58178,10 @@ const xml = freeze(['xlink:href', 'xml:id', 'xlink:title', 'xml:space', 'xmlns:x
 // eslint-disable-next-line unicorn/better-regex
 const MUSTACHE_EXPR = seal(/\{\{[\w\W]*|[\w\W]*\}\}/gm); // Specify template detection regex for SAFE_FOR_TEMPLATES mode
 const ERB_EXPR = seal(/<%[\w\W]*|[\w\W]*%>/gm);
-const TMPLIT_EXPR = seal(/\$\{[\w\W]*}/gm); // eslint-disable-line unicorn/better-regex
+const TMPLIT_EXPR = seal(/\$\{[\w\W]*/gm); // eslint-disable-line unicorn/better-regex
 const DATA_ATTR = seal(/^data-[\-\w.\u00B7-\uFFFF]+$/); // eslint-disable-line no-useless-escape
 const ARIA_ATTR = seal(/^aria-[\-\w]+$/); // eslint-disable-line no-useless-escape
-const IS_ALLOWED_URI = seal(/^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i // eslint-disable-line no-useless-escape
+const IS_ALLOWED_URI = seal(/^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp|matrix):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i // eslint-disable-line no-useless-escape
 );
 const IS_SCRIPT_OR_DATA = seal(/^(?:\w+script|data):/i);
 const ATTR_WHITESPACE = seal(/[\u0000-\u0020\u00A0\u1680\u180E\u2000-\u2029\u205F\u3000]/g // eslint-disable-line no-control-regex
@@ -58228,9 +58278,9 @@ const _createHooksMap = function _createHooksMap() {
 function createDOMPurify() {
   let window = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : getGlobal();
   const DOMPurify = root => createDOMPurify(root);
-  DOMPurify.version = '3.2.3';
+  DOMPurify.version = '3.2.6';
   DOMPurify.removed = [];
-  if (!window || !window.document || window.document.nodeType !== NODE_TYPE.document) {
+  if (!window || !window.document || window.document.nodeType !== NODE_TYPE.document || !window.Element) {
     // Not running in a browser, provide a factory function
     // so that you can pass your own Window
     DOMPurify.isSupported = false;
@@ -58467,8 +58517,8 @@ function createDOMPurify() {
     URI_SAFE_ATTRIBUTES = objectHasOwnProperty(cfg, 'ADD_URI_SAFE_ATTR') ? addToSet(clone(DEFAULT_URI_SAFE_ATTRIBUTES), cfg.ADD_URI_SAFE_ATTR, transformCaseFunc) : DEFAULT_URI_SAFE_ATTRIBUTES;
     DATA_URI_TAGS = objectHasOwnProperty(cfg, 'ADD_DATA_URI_TAGS') ? addToSet(clone(DEFAULT_DATA_URI_TAGS), cfg.ADD_DATA_URI_TAGS, transformCaseFunc) : DEFAULT_DATA_URI_TAGS;
     FORBID_CONTENTS = objectHasOwnProperty(cfg, 'FORBID_CONTENTS') ? addToSet({}, cfg.FORBID_CONTENTS, transformCaseFunc) : DEFAULT_FORBID_CONTENTS;
-    FORBID_TAGS = objectHasOwnProperty(cfg, 'FORBID_TAGS') ? addToSet({}, cfg.FORBID_TAGS, transformCaseFunc) : {};
-    FORBID_ATTR = objectHasOwnProperty(cfg, 'FORBID_ATTR') ? addToSet({}, cfg.FORBID_ATTR, transformCaseFunc) : {};
+    FORBID_TAGS = objectHasOwnProperty(cfg, 'FORBID_TAGS') ? addToSet({}, cfg.FORBID_TAGS, transformCaseFunc) : clone({});
+    FORBID_ATTR = objectHasOwnProperty(cfg, 'FORBID_ATTR') ? addToSet({}, cfg.FORBID_ATTR, transformCaseFunc) : clone({});
     USE_PROFILES = objectHasOwnProperty(cfg, 'USE_PROFILES') ? cfg.USE_PROFILES : false;
     ALLOW_ARIA_ATTR = cfg.ALLOW_ARIA_ATTR !== false; // Default true
     ALLOW_DATA_ATTR = cfg.ALLOW_DATA_ATTR !== false; // Default true
@@ -58833,7 +58883,7 @@ function createDOMPurify() {
       allowedTags: ALLOWED_TAGS
     });
     /* Detect mXSS attempts abusing namespace confusion */
-    if (currentNode.hasChildNodes() && !_isNode(currentNode.firstElementChild) && regExpTest(/<[/\w]/g, currentNode.innerHTML) && regExpTest(/<[/\w]/g, currentNode.textContent)) {
+    if (SAFE_FOR_XML && currentNode.hasChildNodes() && !_isNode(currentNode.firstElementChild) && regExpTest(/<[/\w!]/g, currentNode.innerHTML) && regExpTest(/<[/\w!]/g, currentNode.textContent)) {
       _forceRemove(currentNode);
       return true;
     }
@@ -58985,7 +59035,8 @@ function createDOMPurify() {
         value: attrValue
       } = attr;
       const lcName = transformCaseFunc(name);
-      let value = name === 'value' ? attrValue : stringTrim(attrValue);
+      const initValue = attrValue;
+      let value = name === 'value' ? initValue : stringTrim(initValue);
       /* Execute a hook if present */
       hookEvent.attrName = lcName;
       hookEvent.attrValue = value;
@@ -59011,10 +59062,9 @@ function createDOMPurify() {
       if (hookEvent.forceKeepAttr) {
         continue;
       }
-      /* Remove attribute */
-      _removeAttribute(name, currentNode);
       /* Did the hooks approve of the attribute? */
       if (!hookEvent.keepAttr) {
+        _removeAttribute(name, currentNode);
         continue;
       }
       /* Work around a security issue in jQuery 3.0 */
@@ -59031,6 +59081,7 @@ function createDOMPurify() {
       /* Is `value` valid for this attribute? */
       const lcTag = transformCaseFunc(currentNode.nodeName);
       if (!_isValidAttribute(lcTag, lcName, value)) {
+        _removeAttribute(name, currentNode);
         continue;
       }
       /* Handle attributes that require Trusted Types */
@@ -59051,19 +59102,23 @@ function createDOMPurify() {
         }
       }
       /* Handle invalid data-* attribute set by try-catching it */
-      try {
-        if (namespaceURI) {
-          currentNode.setAttributeNS(namespaceURI, name, value);
-        } else {
-          /* Fallback to setAttribute() for browser-unrecognized namespaces e.g. "x-schema". */
-          currentNode.setAttribute(name, value);
+      if (value !== initValue) {
+        try {
+          if (namespaceURI) {
+            currentNode.setAttributeNS(namespaceURI, name, value);
+          } else {
+            /* Fallback to setAttribute() for browser-unrecognized namespaces e.g. "x-schema". */
+            currentNode.setAttribute(name, value);
+          }
+          if (_isClobbered(currentNode)) {
+            _forceRemove(currentNode);
+          } else {
+            arrayPop(DOMPurify.removed);
+          }
+        } catch (_) {
+          _removeAttribute(name, currentNode);
         }
-        if (_isClobbered(currentNode)) {
-          _forceRemove(currentNode);
-        } else {
-          arrayPop(DOMPurify.removed);
-        }
-      } catch (_) {}
+      }
     }
     /* Execute a hook if present */
     _executeHooks(hooks.afterSanitizeAttributes, currentNode, null);
@@ -59249,7 +59304,11 @@ function createDOMPurify() {
     }
     arrayPush(hooks[entryPoint], hookFunction);
   };
-  DOMPurify.removeHook = function (entryPoint) {
+  DOMPurify.removeHook = function (entryPoint, hookFunction) {
+    if (hookFunction !== undefined) {
+      const index = arrayLastIndexOf(hooks[entryPoint], hookFunction);
+      return index === -1 ? undefined : arraySplice(hooks[entryPoint], index, 1)[0];
+    }
     return arrayPop(hooks[entryPoint]);
   };
   DOMPurify.removeHooks = function (entryPoint) {
